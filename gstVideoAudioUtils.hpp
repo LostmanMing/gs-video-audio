@@ -55,7 +55,7 @@ size_t imageFormatSize( imageFormat format, size_t width, size_t height )
     return (width * height * imageFormatDepth(format)) / 8;
 }
 
-imageFormat gst_parse_format( GstStructure* caps )
+imageFormat gst_parse_video_format(GstStructure* caps )
 {
     const char* format = gst_structure_get_string(caps, "format");
 
@@ -91,6 +91,39 @@ imageFormat gst_parse_format( GstStructure* caps )
     }
 
     return imageFormat::IMAGE_UNKNOWN;
+}
+
+audioFormat gst_parse_audio_format(GstStructure* caps)
+{
+    const char* format = gst_structure_get_string(caps, "format");
+
+    if (!format)
+        return audioFormat::AUDIO_UNKNOWN;
+
+    if (strcasecmp(format, "s16le") == 0)
+        return audioFormat::AUDIO_S16LE;
+    else if (strcasecmp(format, "s16be") == 0)
+        return audioFormat::AUDIO_S16BE;
+    else if (strcasecmp(format, "s24le") == 0)
+        return audioFormat::AUDIO_S24LE;
+    else if (strcasecmp(format, "s24be") == 0)
+        return audioFormat::AUDIO_S24BE;
+    else if (strcasecmp(format, "s32le") == 0)
+        return audioFormat::AUDIO_S32LE;
+    else if (strcasecmp(format, "s32be") == 0)
+        return audioFormat::AUDIO_S32BE;
+    else if (strcasecmp(format, "u8") == 0)
+        return audioFormat::AUDIO_U8;
+    else if (strcasecmp(format, "f32le") == 0)
+        return audioFormat::AUDIO_F32LE;
+    else if (strcasecmp(format, "f32be") == 0)
+        return audioFormat::AUDIO_F32BE;
+    else if (strcasecmp(format, "f64le") == 0)
+        return audioFormat::AUDIO_F64LE;
+    else if (strcasecmp(format, "f64be") == 0)
+        return audioFormat::AUDIO_F64BE;
+
+    return audioFormat::AUDIO_UNKNOWN;
 }
 
 // imageFormatToStr

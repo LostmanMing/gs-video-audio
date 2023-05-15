@@ -19,19 +19,23 @@ public:
     bool Open();
     bool isOpen();
     void checkMsgBus();
-
-    void checkBuffer();
+    void checkVideoBuffer();
+    void checkAudioBuffer();
 
     bool init();
 
-    static GstFlowReturn onPreroll(_GstAppSink *sink, void *user_data);
+    static GstFlowReturn onPreroll_video(_GstAppSink *sink, void *user_data);
+    static GstFlowReturn onBuffer_video(_GstAppSink *sink, void *user_data);
+    static void onEOS_video(_GstAppSink* sink, void* user_data);
 
-    static GstFlowReturn onBuffer(_GstAppSink *sink, void *user_data);
-    static void onEOS(_GstAppSink* sink, void* user_data);
+    static GstFlowReturn onPreroll_audio(_GstAppSink *sink, void *user_data);
+    static GstFlowReturn onBuffer_audio(_GstAppSink *sink, void *user_data);
+    static void onEOS_audio(_GstAppSink* sink, void* user_data);
 
     GstBus*      mBus;
     GstElement*  mPipeline;
-    _GstAppSink* mAppSink;
+    _GstAppSink* mVideoAppSink;
+    _GstAppSink* mAudioAppSink;
 
     std::shared_ptr<std::vector<uint8_t>> Capture(imageFormat format, uint64_t timeout, int* status);
     std::unique_ptr<gstBufferManager> mBufferManager;

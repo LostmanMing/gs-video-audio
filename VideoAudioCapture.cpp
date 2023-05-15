@@ -97,7 +97,7 @@ gboolean gst_message_print(GstBus *bus, GstMessage *message, gpointer user_data)
             gchar *txt = gst_tag_list_to_string(tags);
 
             if (txt != nullptr) {
-                spdlog::error("gstreamer {} tag {}", GST_OBJECT_NAME(message->src), txt);
+                spdlog::info("gstreamer {} tag {}", GST_OBJECT_NAME(message->src), txt);
                 g_free(txt);
             }
 
@@ -109,7 +109,7 @@ gboolean gst_message_print(GstBus *bus, GstMessage *message, gpointer user_data)
             break;
         }
         default: {
-            spdlog::error("gstreamer {} message {} ==> {}", GST_OBJECT_NAME(message->src),
+            spdlog::info("gstreamer {} message {} ==> {}", GST_OBJECT_NAME(message->src),
                           gst_message_type_get_name(GST_MESSAGE_TYPE(message)), GST_OBJECT_NAME(message->src));
             break;
         }
@@ -154,32 +154,44 @@ bool VideoAudioCapture::initPipeline() {
     //gst_bus_add_watch(mBus, (GstBusFunc)gst_message_print, NULL);
 
     // get the appsrc
-    GstElement *appsinkElement = gst_bin_get_by_name(GST_BIN(pipeline), "mysink");
-    GstAppSink *appsink = GST_APP_SINK(appsinkElement);
+    GstElement *appvideosinkElement = gst_bin_get_by_name(GST_BIN(pipeline), "video_sink");
+    GstElement *appaudiosinkElement = gst_bin_get_by_name(GST_BIN(pipeline),"audio_sink");
 
-    if (!appsinkElement || !appsink) {
+    GstAppSink *appvideosink = GST_APP_SINK(appvideosinkElement);
+    GstAppSink *appaudiosink = GST_APP_SINK(appaudiosinkElement);
+
+    if (!appvideosinkElement || !appvideosink || !appaudiosinkElement || !appaudiosink) {
         spdlog::error("gstDecoder -- failed to retrieve AppSink element from pipeline");
         return false;
     }
 
-    mAppSink = appsink;
+    mVideoAppSink = appvideosink;
+    mAudioAppSink = appaudiosink;
 
     // setup callbacks
-    GstAppSinkCallbacks cb;
-    memset(&cb, 0, sizeof(GstAppSinkCallbacks));
+    GstAppSinkCallbacks video_cb;
+    GstAppSinkCallbacks audio_cb;
 
-    cb.eos = onEOS;
-    cb.new_preroll = onPreroll;    // disabled b/c preroll sometimes occurs during Close() and crashes
-    cb.new_sample = onBuffer;
+    memset(&video_cb, 0, sizeof(GstAppSinkCallbacks));
+    memset(&audio_cb, 0, sizeof(GstAppSinkCallbacks));
 
+    video_cb.eos = onEOS_video;
+    video_cb.new_preroll = onPreroll_video;    // disabled b/c preroll sometimes occurs during Close() and crashes
+    video_cb.new_sample = onBuffer_video;
 
-    gst_app_sink_set_callbacks(mAppSink, &cb, (void *) this, nullptr);
+    audio_cb.eos = onEOS_audio;
+    audio_cb.new_preroll = onPreroll_audio;
+    audio_cb.new_sample = onBuffer_audio;
+
+    gst_app_sink_set_callbacks(mVideoAppSink, &video_cb, (void *) this, nullptr);
+    gst_app_sink_set_callbacks(mAudioAppSink, &audio_cb, (void *) this, nullptr);
     return true;
 }
 
 bool VideoAudioCapture::buildLaunchStr() {
     std::ostringstream ss;
-    ss<< "filesrc location=/home/topeet/gst-workspace/samples/test.mp4 ! qtdemux name=demux demux.video_0 ! queue ! decodebin ! videoconvert ! video/x-raw ,format=(string)RGBA !   appsink name=mysink sync=false";
+    //ss<< "filesrc location=/home/topeet/gst-workspace/samples/test.mp4 ! qtdemux name=demux demux.video_0 ! queue ! decodebin ! videoconvert ! video/x-raw ,format=(string)RGBA !   appsink name=mysink sync=false";
+    ss<<"filesrc location=/home/topeet/gst-workspace/samples/test.mp4 ! decodebin name=decoder decoder. ! queue ! videoconvert ! video/x-raw ,format=(string)RGBA ! appsink name=video_sink sync=true decoder. ! queue  ! audioconvert  ! appsink name=audio_sink sync=true";
     mLaunchStr = ss.str();
     return true;
 }
@@ -188,13 +200,13 @@ bool VideoAudioCapture::buildLaunchStr() {
 #define release_return { gst_sample_unref(gstSample); return; }
 
 
-void VideoAudioCapture::checkBuffer() {
+void VideoAudioCapture::checkVideoBuffer() {
 
-    if (!mAppSink) {
+    if (!mVideoAppSink) {
         return;
     }
     // block waiting for the sample
-    GstSample *gstSample = gst_app_sink_pull_sample(mAppSink);
+    GstSample *gstSample = gst_app_sink_pull_sample(mVideoAppSink);
 
     if (!gstSample) {
         spdlog::error("gstDecoder -- app_sink_pull_sample() returned NULL...");
@@ -222,7 +234,7 @@ void VideoAudioCapture::checkBuffer() {
     const uint32_t height = mOptions.height;
 
     // enqueue the buffer for color conversion
-    if( !mBufferManager->Enqueue(gstBuffer, gstCaps) )
+    if( !mBufferManager->videoEnqueue(gstBuffer, gstCaps) )
     {
         spdlog::error("gstDecoder -- failed to enqueue buffer for color conversion");
         release_return;
@@ -246,6 +258,56 @@ void VideoAudioCapture::checkBuffer() {
     release_return;
 }
 
+void VideoAudioCapture::checkAudioBuffer() {
+
+    if (!mAudioAppSink) {
+        return;
+    }
+    // block waiting for the sample
+    GstSample *gstSample = gst_app_sink_pull_sample(mAudioAppSink);
+
+    if (!gstSample) {
+        spdlog::error("gstDecoder -- app_sink_pull_sample() returned NULL...");
+        return;
+    }
+
+    // retrieve sample caps
+    GstCaps *gstCaps = gst_sample_get_caps(gstSample);
+
+    if (!gstCaps) {
+        spdlog::error("gstDecoder -- gst_sample had NULL caps...");
+        release_return;
+    }
+
+    // retrieve the buffer from the sample
+    GstBuffer *gstBuffer = gst_sample_get_buffer(gstSample);
+
+    if (!gstBuffer) {
+        spdlog::error("gstDecoder -- gst_sample had NULL buffer...");
+        release_return;
+    }
+
+
+
+    const uint32_t sample_rate = mOptions.Sampling_rate;
+    const uint32_t channels = mOptions.channels;
+
+    // enqueue the buffer for color conversion
+    if( !mBufferManager->audioEnqueue(gstBuffer, gstCaps) )
+    {
+        spdlog::error("gstDecoder -- failed to enqueue buffer for color conversion");
+        release_return;
+    }
+
+    if ((sample_rate > 0 && sample_rate != mOptions.Sampling_rate) || (channels > 0 && channels != mOptions.channels)) {
+        spdlog::warn("gstDecoder -- audio resolution changing from ({0}x{1}) to ({2}x{3})", sample_rate, channels, mOptions.Sampling_rate,
+                     mOptions.channels);
+
+    }
+
+    //mOptions.frameCount++;
+    release_return;
+}
 
 void VideoAudioCapture::checkMsgBus() {
     while (true) {
@@ -259,9 +321,9 @@ void VideoAudioCapture::checkMsgBus() {
     }
 }
 
-GstFlowReturn VideoAudioCapture::onBuffer(_GstAppSink *sink, void *user_data) {
-    //printf(LOG_GSTREAMER "gstDecoder -- onBuffer()\n");
-
+GstFlowReturn VideoAudioCapture::onBuffer_video(_GstAppSink *sink, void *user_data) {
+    //printf(LOG_GSTREAMER "gstDecoder -- onBuffer_video()\n");
+    spdlog::info("gstDecoder -- onBuffer_video()");
     if (!user_data){
         return GST_FLOW_OK;
     }
@@ -269,23 +331,60 @@ GstFlowReturn VideoAudioCapture::onBuffer(_GstAppSink *sink, void *user_data) {
 
     auto *dec = (VideoAudioCapture *) user_data;
 
-    dec->checkBuffer();
+    dec->checkVideoBuffer();
+    dec->checkMsgBus();
+
+    return GST_FLOW_OK;
+}
+GstFlowReturn VideoAudioCapture::onBuffer_audio(_GstAppSink *sink, void *user_data) {
+    //printf(LOG_GSTREAMER "gstDecoder -- onBuffer_video()\n");
+    spdlog::info("gstDecoder -- onBuffer_audio");
+    if (!user_data){
+        return GST_FLOW_OK;
+    }
+
+
+    auto *dec = (VideoAudioCapture *) user_data;
+
+    dec->checkAudioBuffer();
     dec->checkMsgBus();
 
     return GST_FLOW_OK;
 }
 
-GstFlowReturn VideoAudioCapture::onPreroll(_GstAppSink *sink, void *user_data) {
-    spdlog::debug("gstDecoder -- onPreroll()\n");
+GstFlowReturn VideoAudioCapture::onPreroll_video(_GstAppSink *sink, void *user_data) {
+    spdlog::debug("gstDecoder -- onPreroll_video");
 
     if (!user_data)
         return GST_FLOW_OK;
 
     auto *dec = (VideoAudioCapture *) user_data;
 
-    // onPreroll gets called sometimes, just pull and free the buffer
+    // onPreroll_video gets called sometimes, just pull and free the buffer
     // otherwise the pipeline may hang during shutdown
-    GstSample *gstSample = gst_app_sink_pull_preroll(dec->mAppSink);
+    GstSample *gstSample = gst_app_sink_pull_preroll(dec->mVideoAppSink);
+
+    if (!gstSample) {
+        spdlog::error("gstDecoder -- app_sink_pull_preroll() returned NULL...");
+        return GST_FLOW_OK;
+    }
+
+    gst_sample_unref(gstSample);
+
+    dec->checkMsgBus();
+    return GST_FLOW_OK;
+}
+GstFlowReturn VideoAudioCapture::onPreroll_audio(_GstAppSink *sink, void *user_data) {
+    spdlog::debug("gstDecoder -- onPreroll_audio()\n");
+
+    if (!user_data)
+        return GST_FLOW_OK;
+
+    auto *dec = (VideoAudioCapture *) user_data;
+
+    // onPreroll_video gets called sometimes, just pull and free the buffer
+    // otherwise the pipeline may hang during shutdown
+    GstSample *gstSample = gst_app_sink_pull_preroll(dec->mAudioAppSink);
 
     if (!gstSample) {
         spdlog::error("gstDecoder -- app_sink_pull_preroll() returned NULL...");
@@ -302,9 +401,12 @@ bool VideoAudioCapture::isOpen() {
     return mStreaming;
 }
 
-void VideoAudioCapture::onEOS(_GstAppSink *sink, void *user_data) {
+void VideoAudioCapture::onEOS_video(_GstAppSink *sink, void *user_data) {
 
-    spdlog::info("VideoAudioCapture -- onEOS()\n");
+    spdlog::info("VideoAudioCapture -- onEOS_video\n");
+}
+void VideoAudioCapture::onEOS_audio(_GstAppSink *sink, void *user_data) {
+    spdlog::info("VideoAudioCapture -- onEOS_audio\n");
 }
 
 std::shared_ptr<std::vector<uint8_t>> VideoAudioCapture::Capture(imageFormat format, uint64_t timeout, int *status) {
@@ -347,6 +449,9 @@ bool VideoAudioCapture::Open() {
 
 
 }
+
+
+
 
 #if 0
 static void queryPipelineState( GstElement* pipeline )

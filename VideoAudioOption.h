@@ -21,6 +21,8 @@ class VideoAudioOption{
 public:
     int height;
     int width;
+    int Sampling_rate;
+    int channels;
     URI resource;
 
     /**
@@ -55,7 +57,6 @@ public:
      * @note the default is true (zeroCopy CPU/GPU access enabled).
      */
     bool zeroCopy;
-
 
     Codec codec;
     // CodecToStr

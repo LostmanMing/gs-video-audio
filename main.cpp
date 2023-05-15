@@ -10,13 +10,12 @@ void launch_gs(){
 }
 
 int main(){
-
+    spdlog::set_level(spdlog::level::debug);
     VideoAudioOption option;
 
     auto xx=std::make_unique<VideoAudioOption>();
     VideoAudioCapture capture(std::move(xx));
 
-    spdlog::set_level(spdlog::level::debug);
     capture.initPipeline();
     capture.Open();
     while (capture.Capture(imageFormat::IMAGE_RGBA8,1000,nullptr)!=nullptr){

@@ -368,7 +368,7 @@ struct ConcurrentQueueDefaultTraits
 	static const std::uint32_t EXPLICIT_CONSUMER_CONSUMPTION_QUOTA_BEFORE_ROTATE = 256;
 	
 	// The maximum number of elements (inclusive) that can be enqueued to a sub-queue.
-	// Enqueue operations that would cause this limit to be surpassed will fail. Note
+	// videoEnqueue operations that would cause this limit to be surpassed will fail. Note
 	// that this limit is enforced at the block level (for performance reasons), i.e.
 	// it's rounded up to the nearest block size.
 	static const size_t MAX_SUBQUEUE_SIZE = details::const_numeric_max<size_t>::value;
@@ -1929,7 +1929,7 @@ private:
 				}
 			}
 			
-			// Enqueue
+			// videoEnqueue
 			new ((*this->tailBlock)[currentTailIndex]) T(std::forward<U>(element));
 			
 			this->tailIndex.store(newTailIndex, std::memory_order_release);
@@ -2144,7 +2144,7 @@ private:
 				}
 			}
 			
-			// Enqueue, one block at a time
+			// videoEnqueue, one block at a time
 			index_t newTailIndex = startTailIndex + static_cast<index_t>(count);
 			currentTailIndex = startTailIndex;
 			auto endBlock = this->tailBlock;
@@ -2525,7 +2525,7 @@ private:
 				}
 			}
 			
-			// Enqueue
+			// videoEnqueue
 			new ((*this->tailBlock)[currentTailIndex]) T(std::forward<U>(element));
 			
 			this->tailIndex.store(newTailIndex, std::memory_order_release);
@@ -2684,7 +2684,7 @@ private:
 				} while (blockBaseDiff > 0);
 			}
 			
-			// Enqueue, one block at a time
+			// videoEnqueue, one block at a time
 			index_t newTailIndex = startTailIndex + static_cast<index_t>(count);
 			currentTailIndex = startTailIndex;
 			this->tailBlock = startBlock;

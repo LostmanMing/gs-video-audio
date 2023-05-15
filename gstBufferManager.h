@@ -18,10 +18,14 @@ public:
     ~gstBufferManager();
 
     /**
-     * Enqueue a GstBuffer from GStreamer.
+     * videoEnqueue a GstBuffer from GStreamer.
      */
-    bool Enqueue( GstBuffer* buffer, GstCaps* caps );
+    bool videoEnqueue(GstBuffer* buffer, GstCaps* caps );
 
+    /**
+     * videoEnqueue a GstBuffer from GStreamer.
+     */
+    bool audioEnqueue(GstBuffer* buffer, GstCaps* caps );
     /**
      * Dequeue the next frame.  Returns 1 on success, 0 on timeout, -1 on error.
      */
@@ -46,11 +50,14 @@ public:
 
 
     imageFormat   mFormatYUV;  /**< The YUV colorspace format coming from appsink (typically NV12 or YUY2) */
+    audioFormat   mFormatPCM;
     PMRQueue    mBufferYUV;  /**< Ringbuffer of CPU-based YUV frames (non-NVMM) that come from appsink */
+    PMRQueue    mBufferPCM;
     PMRQueue    mTimestamps; /**< Ringbuffer of timestamps that come from appsink */
     PMRQueue    mBufferRGB;  /**< Ringbuffer of frames that have been converted to RGB colorspace */
     uint64_t      mLastTimestamp;  /**< Timestamp of the latest dequeued frame */
     std::unique_ptr<VideoAudioOption> mOptions;    /**< Options of the gstDecoder / gstCamera object */
     uint64_t	  mFrameCount; /**< Total number of frames that have been recieved */
+    uint64_t      mSampleCount;
 
 };

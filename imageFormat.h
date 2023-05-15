@@ -37,3 +37,26 @@ enum class imageFormat
     IMAGE_UNKNOWN=999,				/**< Unknown/undefined format */
     IMAGE_DEFAULT=IMAGE_RGBA32F		/**< Default format (IMAGE_RGBA32F) */
 };
+enum class audioFormat
+{
+    // Signed integer formats
+    AUDIO_S16LE = 0,    /**< Signed 16-bit little-endian */
+    AUDIO_S16BE,        /**< Signed 16-bit big-endian */
+    AUDIO_S24LE,        /**< Signed 24-bit little-endian */
+    AUDIO_S24BE,        /**< Signed 24-bit big-endian */
+    AUDIO_S32LE,        /**< Signed 32-bit little-endian */
+    AUDIO_S32BE,        /**< Signed 32-bit big-endian */
+
+    // Unsigned integer formats
+    AUDIO_U8,           /**< Unsigned 8-bit */
+
+    // Floating-point formats
+    AUDIO_F32LE,        /**< 32-bit float little-endian */
+    AUDIO_F32BE,        /**< 32-bit float big-endian */
+    AUDIO_F64LE,        /**< 64-bit float little-endian */
+    AUDIO_F64BE,        /**< 64-bit float big-endian */
+
+    // Special formats
+    AUDIO_UNKNOWN=999,      /**< Unknown/undefined format */
+    AUDIO_DEFAULT = AUDIO_S16LE   /**< Default format (AUDIO_S16LE) */
+};
